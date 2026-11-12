@@ -5,7 +5,7 @@ const CHANNELS = [
   'config:get', 'config:set',
   'versions:list',
   'instances:list', 'instances:create', 'instances:delete', 'instances:openFolder',
-  'game:launch', 'game:stop',
+  'game:launch', 'game:stop', 'recent:list',
   'skin:save', 'skin:upload',
   'content:search', 'content:install', 'content:list', 'content:remove',
 ];

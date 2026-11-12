@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const { once } = require('events');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const { Client } = require('minecraft-launcher-core');
 const { Auth } = require('msmc');
 const AdmZip = require('adm-zip');
@@ -185,6 +186,8 @@ async function versionInfo(id) {
     type: v.type,
     javaMajor: (json.javaVersion && json.javaVersion.majorVersion) || 8,
     jvmArgs: versionJvmArgs(json),
+    // Ab 1.20 kann das Spiel direkt in eine Welt oder auf einen Server starten.
+    quickPlay: JSON.stringify((json.arguments && json.arguments.game) || '').includes('quickPlaySingleplayer'),
   };
 }
 
@@ -321,8 +324,138 @@ async function deleteInstance(id) {
   await fsp.rm(instDir(id), { recursive: true, force: true });
 }
 
+// ---------- zuletzt gespielt (Welten und Server) ----------
+// Minimaler NBT-Leser für level.dat (gzip) und servers.dat.
+function readNbt(buf) {
+  let o = 0;
+  const str = () => { const l = buf.readUInt16BE(o); o += 2; const s = buf.toString('utf8', o, o + l); o += l; return s; };
+  const payload = (t) => {
+    switch (t) {
+      case 1: o += 1; return buf.readInt8(o - 1);
+      case 2: o += 2; return buf.readInt16BE(o - 2);
+      case 3: o += 4; return buf.readInt32BE(o - 4);
+      case 4: o += 8; return Number(buf.readBigInt64BE(o - 8));
+      case 5: o += 4; return buf.readFloatBE(o - 4);
+      case 6: o += 8; return buf.readDoubleBE(o - 8);
+      case 7: { const l = buf.readInt32BE(o); o += 4 + l; return null; }
+      case 8: return str();
+      case 9: { const et = buf.readUInt8(o); const l = buf.readInt32BE(o + 1); o += 5; const a = []; for (let i = 0; i < l; i++) a.push(payload(et)); return a; }
+      case 10: { const c = {}; for (;;) { const tt = buf.readUInt8(o); o += 1; if (tt === 0) break; const n = str(); c[n] = payload(tt); } return c; }
+      case 11: { const l = buf.readInt32BE(o); o += 4 + l * 4; return null; }
+      case 12: { const l = buf.readInt32BE(o); o += 4 + l * 8; return null; }
+      default: throw new Error('NBT');
+    }
+  };
+  if (buf.readUInt8(o) !== 10) throw new Error('NBT');
+  o += 1; str();
+  return payload(10);
+}
+function pngDataUrl(file) {
+  try {
+    const st = fs.statSync(file);
+    if (st.size > 0 && st.size < 300000) return 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
+  } catch { /* kein Bild */ }
+  return null;
+}
+const SERVER_RE = /^[A-Za-z0-9._\-\[\]:]{1,255}$/;
+function recentFile(id) {
+  return path.join(instDir(id), 'nova-recent.json');
+}
+function readRecent(id) {
+  const r = readJsonSync(recentFile(id), null);
+  return r && r.servers ? r : { servers: {} };
+}
+function noteServer(id, address, name, time) {
+  if (!SERVER_RE.test(address)) return;
+  const r = readRecent(id);
+  const old = r.servers[address] || {};
+  r.servers[address] = { name: name || old.name || address, time: Math.max(time || Date.now(), old.time || 0) };
+  fs.writeFileSync(recentFile(id), JSON.stringify(r));
+}
+// Das Spiel schreibt (ab 1.20) in quickPlay/log.json, was zuletzt gespielt wurde.
+function importQuickPlayLog(id) {
+  try {
+    const entries = JSON.parse(fs.readFileSync(path.join(instDir(id), 'quickPlay', 'log.json'), 'utf8'));
+    for (const e of [].concat(entries)) {
+      const w = e.quickPlayWorld || e;
+      if (w && w.type === 'multiplayer' && w.id) noteServer(id, String(w.id), w.name, Date.parse(e.lastPlayedTime) || Date.now());
+    }
+  } catch { /* kein Protokoll vorhanden */ }
+}
+function listRecent() {
+  const items = [];
+  for (const inst of listInstances()) {
+    const dir = instDir(inst.id);
+    const base = { instanceId: inst.id, instanceName: inst.name, version: inst.version, loader: inst.loader };
+    // Unbekannt (noch nie mit dieser Version gestartet) zählt als möglich; beim Start wird es geprüft.
+    const canQuick = !(inst.versionInfo && inst.versionInfo.quickPlay === false);
+    // Welten
+    const saves = path.join(dir, 'saves');
+    let folders = [];
+    try { folders = fs.readdirSync(saves, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name); } catch { /* keine Welten */ }
+    for (const folder of folders) {
+      const level = path.join(saves, folder, 'level.dat');
+      let st;
+      try { st = fs.statSync(level); } catch { continue; }
+      let name = folder;
+      let time = st.mtimeMs;
+      try {
+        const data = readNbt(zlib.gunzipSync(fs.readFileSync(level))).Data || {};
+        if (typeof data.LevelName === 'string' && data.LevelName) name = data.LevelName;
+        if (data.LastPlayed > 0) time = data.LastPlayed;
+      } catch { /* Ordnername und Änderungszeit genügen */ }
+      items.push({ ...base, kind: 'world', id: folder, name, time, direct: canQuick, icon: pngDataUrl(path.join(saves, folder, 'icon.png')) });
+    }
+    // Server: Liste aus dem Spiel plus eigene Zeitstempel
+    importQuickPlayLog(inst.id);
+    const hist = readRecent(inst.id).servers;
+    const servers = new Map();
+    try {
+      const list = readNbt(fs.readFileSync(path.join(dir, 'servers.dat'))).servers || [];
+      for (const s of list) {
+        if (!s || typeof s.ip !== 'string' || !SERVER_RE.test(s.ip)) continue;
+        const icon = typeof s.icon === 'string' && s.icon.length < 200000 && /^[A-Za-z0-9+/=]+$/.test(s.icon) ? 'data:image/png;base64,' + s.icon : null;
+        servers.set(s.ip, { name: s.name || s.ip, time: 0, icon });
+      }
+    } catch { /* keine Serverliste */ }
+    for (const [address, h] of Object.entries(hist)) {
+      if (!SERVER_RE.test(address)) continue;
+      const cur = servers.get(address) || { name: h.name || address, icon: null };
+      servers.set(address, { ...cur, time: h.time || 0 });
+    }
+    for (const [address, s] of servers) {
+      items.push({ ...base, kind: 'server', id: address, name: s.name, address, time: s.time, direct: true, icon: s.icon });
+    }
+  }
+  return items.sort((a, b) => b.time - a.time).slice(0, 10);
+}
+function quickArgs(inst, info, quick) {
+  const args = info.quickPlay ? ['--quickPlayPath', 'quickPlay/log.json'] : [];
+  if (!quick) return args;
+  const target = String(quick.target || '');
+  if (quick.type === 'world') {
+    if (target !== path.basename(target) || !fs.existsSync(path.join(instDir(inst.id), 'saves', target, 'level.dat'))) {
+      throw new Error('Diese Welt gibt es nicht mehr.');
+    }
+    if (info.quickPlay) args.push('--quickPlaySingleplayer', target);
+    else log('Diese Minecraft-Version kann nicht direkt in eine Welt starten, die Instanz wird normal geöffnet.');
+  } else if (quick.type === 'server') {
+    if (!SERVER_RE.test(target)) throw new Error('Ungültige Serveradresse');
+    if (info.quickPlay) {
+      args.push('--quickPlayMultiplayer', target);
+    } else {
+      const m = /^(.*?)(?::(\d+))?$/.exec(target);
+      args.push('--server', m[1], '--port', m[2] || '25565');
+    }
+    noteServer(inst.id, target);
+  } else {
+    throw new Error('Unbekanntes Schnellstart-Ziel');
+  }
+  return args;
+}
+
 // ---------- launch ----------
-async function launch(id) {
+async function launch(id, quick) {
   if (running.has(id)) throw new Error('Diese Instanz läuft bereits');
   const inst = getInstance(id);
   const status = (text, done, total) => send('progress', { id, text, done, total });
@@ -361,6 +494,7 @@ async function launch(id) {
       running.delete(id);
       both(`Minecraft beendet (Code ${code})`);
       fileLog.end();
+      importQuickPlayLog(id);
       send('state', { id, running: false });
     });
     status('Spieldateien werden geprüft', 0, 0);
@@ -371,6 +505,7 @@ async function launch(id) {
       javaPath,
       memory: { max: `${cfg.memoryMax}G`, min: '1G' },
       customArgs: resolveJvmArgs(info.jvmArgs, inst.version),
+      customLaunchArgs: quickArgs(inst, info, quick),
       overrides: { gameDirectory: instDir(id), cwd: instDir(id), detached: false },
     });
     if (!child) throw new Error('Minecraft konnte nicht gestartet werden (siehe Protokoll).');
@@ -527,7 +662,8 @@ handle('instances:openFolder', (id) => {
   fs.mkdirSync(dir, { recursive: true });
   return shell.openPath(dir);
 });
-handle('game:launch', (id) => launch(id));
+handle('game:launch', (id, quick) => launch(id, quick || null));
+handle('recent:list', () => listRecent());
 handle('game:stop', (id) => stop(id));
 handle('content:search', (opts) => searchContent(opts || {}));
 handle('content:install', ({ id, type, projectId }) => installContent(getInstance(id), checkType(type), String(projectId), new Set()));

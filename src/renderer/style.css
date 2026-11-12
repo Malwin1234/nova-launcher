@@ -176,3 +176,22 @@ footer { border-top: 1px solid var(--line); background: var(--panel); padding: 1
 #skin-model, .sk-box { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
 .sk-face { position: absolute; left: 0; top: 0; background-image: var(--skin); background-repeat: no-repeat; image-rendering: pixelated; }
 .sk-face.solid { backface-visibility: hidden; }
+
+/* ---------- Weiterspielen ---------- */
+h2.section { font-size: 14px; color: var(--muted); font-weight: 600; margin: 4px 0 10px; flex: none; }
+.recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; margin-bottom: 22px; flex: none; }
+#recent-empty { margin-bottom: 22px; }
+.recent {
+  display: flex; align-items: center; gap: 12px; text-align: left; font: inherit; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; min-width: 0;
+}
+.recent:hover { border-color: var(--accent); }
+.recent:disabled { opacity: .5; cursor: default; border-color: var(--line); }
+.recent img, .recent .noicon { width: 48px; height: 48px; border-radius: 8px; flex: none; image-rendering: pixelated; object-fit: cover; }
+.recent .noicon { background: var(--panel2); display: grid; place-items: center; font-size: 11px; color: var(--muted); }
+.recent .info { flex: 1; min-width: 0; }
+.recent .info div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent .title { font-weight: 600; }
+.recent .muted { font-size: 12.5px; }
+.recent .go { color: var(--accent2); font-size: 16px; flex: none; }
+.grid { flex: none; }

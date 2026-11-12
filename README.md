@@ -9,6 +9,7 @@ Ein eigener Minecraft-Launcher für Windows (Electron).
 - Passende Java-Laufzeit (Eclipse Temurin) wird automatisch heruntergeladen
 - Offline-Modus: Start ohne Anmeldeserver (Einzelspieler/LAN), nach einmaliger Microsoft-Anmeldung
 - Skin-Editor: Presets kombinieren, selber pixeln, 3D-Vorschau, als PNG speichern oder aufs Konto hochladen
+- Weiterspielen: Schnellstart für die letzten 10 gespielten Welten und Server
 - Arbeitsspeicher einstellbar, Live-Protokoll des Spiels
 
 ## Installation
