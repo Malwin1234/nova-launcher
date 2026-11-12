@@ -138,3 +138,9 @@ footer { border-top: 1px solid var(--line); background: var(--panel); padding: 1
   background: var(--panel2); border: 1px solid var(--danger); padding: 10px 16px; border-radius: 10px; max-width: 70%;
 }
 #toast.ok { border-color: var(--accent2); }
+
+.badge {
+  margin-bottom: 10px; padding: 6px 10px; border-radius: 8px; text-align: center; font-size: 13px;
+  background: rgba(255, 184, 77, .12); color: #ffb84d; border: 1px solid rgba(255, 184, 77, .4);
+}
+.card label.check { display: flex; align-items: center; gap: 8px; }

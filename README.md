@@ -7,6 +7,7 @@ Ein eigener Minecraft-Launcher für Windows (Electron).
 - Instanzen mit getrennten Spielordnern (Vanilla oder Fabric, alle Releases und Snapshots)
 - Modrinth-Browser für Mods, Resource Packs und Shader inkl. Pflicht-Abhängigkeiten
 - Passende Java-Laufzeit (Eclipse Temurin) wird automatisch heruntergeladen
+- Offline-Modus: Start ohne Anmeldeserver (Einzelspieler/LAN), nach einmaliger Microsoft-Anmeldung
 - Arbeitsspeicher einstellbar, Live-Protokoll des Spiels
 
 ## Installation

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, safeStorage, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, safeStorage, Menu, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -34,13 +34,31 @@ function errMsg(e) {
   if (e.message) return e.message;
   try { return JSON.stringify(e); } catch { return String(e); }
 }
+const NO_NET = 'Keine Internetverbindung. Diese Funktion ist offline nicht verfügbar.';
+async function request(url) {
+  if (getConfig().offlineMode) throw new Error('Der Offline-Modus ist aktiv. Schalte ihn in den Einstellungen aus, um das zu nutzen.');
+  try {
+    return await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) });
+  } catch {
+    throw new Error(NO_NET);
+  }
+}
+function isOffline() {
+  return getConfig().offlineMode || !net.isOnline();
+}
 async function getJson(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
+  const res = await request(url);
   if (!res.ok) throw new Error(`Anfrage fehlgeschlagen (${res.status}): ${url}`);
   return res.json();
 }
 async function download(url, dest, onProgress) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
+  if (getConfig().offlineMode) throw new Error('Der Offline-Modus ist aktiv. Schalte ihn in den Einstellungen aus, um das zu nutzen.');
+  let res;
+  try {
+    res = await fetch(url, { headers: { 'User-Agent': UA } });
+  } catch {
+    throw new Error(NO_NET);
+  }
   if (!res.ok) throw new Error(`Download fehlgeschlagen (${res.status}): ${url}`);
   const total = Number(res.headers.get('content-length')) || 0;
   await fsp.mkdir(path.dirname(dest), { recursive: true });
@@ -69,11 +87,12 @@ function instDir(id) {
 
 // ---------- config ----------
 function getConfig() {
-  return { memoryMax: 4, ...readJsonSync(CONFIG_FILE, {}) };
+  return { memoryMax: 4, offlineMode: false, ...readJsonSync(CONFIG_FILE, {}) };
 }
 function setConfig(patch) {
   const cfg = { ...getConfig() };
   if (patch && Number.isFinite(patch.memoryMax)) cfg.memoryMax = Math.min(32, Math.max(1, Math.round(patch.memoryMax)));
+  if (patch && typeof patch.offlineMode === 'boolean') cfg.offlineMode = patch.offlineMode;
   fs.mkdirSync(DATA, { recursive: true });
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
   return cfg;
@@ -102,20 +121,51 @@ async function login() {
   saveAccount({ refresh: xbox.save(), name: mc.profile.name, uuid: mc.profile.id });
   return publicAccount();
 }
+function offlineAuth(acc) {
+  // Start ohne Anmeldeserver: Einzelspieler und LAN funktionieren, Online-Server nicht.
+  return { access_token: '0', client_token: '0', uuid: acc.uuid, name: acc.name, user_properties: '{}', meta: { type: 'mojang' } };
+}
 async function getLaunchAuth() {
   const acc = loadAccount();
-  if (!acc) throw new Error('Bitte zuerst mit einem Microsoft-Konto anmelden.');
-  const xbox = await new Auth('select_account').refresh(acc.refresh);
-  const mc = await xbox.getMinecraft();
-  saveAccount({ refresh: xbox.save(), name: mc.profile.name, uuid: mc.profile.id });
-  return mc.mclc();
+  if (!acc) throw new Error('Bitte einmal mit einem Microsoft-Konto anmelden. Danach kannst du auch offline spielen.');
+  if (isOffline()) {
+    log('Offline-Modus: Start ohne Anmeldeserver (nur Einzelspieler und LAN).');
+    return { auth: offlineAuth(acc), offline: true };
+  }
+  try {
+    const xbox = await new Auth('select_account').refresh(acc.refresh);
+    const mc = await xbox.getMinecraft();
+    saveAccount({ refresh: xbox.save(), name: mc.profile.name, uuid: mc.profile.id });
+    return { auth: mc.mclc(), offline: false };
+  } catch (e) {
+    // Nur bei fehlender Verbindung offline weitermachen, nicht bei abgelehnter Anmeldung.
+    let reachable = true;
+    try {
+      await fetch('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+    } catch {
+      reachable = false;
+    }
+    if (reachable) throw e;
+    log('Anmeldeserver nicht erreichbar, starte offline (nur Einzelspieler und LAN).');
+    return { auth: offlineAuth(acc), offline: true };
+  }
 }
 
 // ---------- versions ----------
 let manifestCache = null;
+const MANIFEST_FILE = path.join(META, 'version_manifest_cache.json');
 async function getManifest() {
-  if (!manifestCache) manifestCache = await getJson('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
-  return manifestCache;
+  if (manifestCache) return manifestCache;
+  try {
+    manifestCache = await getJson('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
+    fs.mkdirSync(META, { recursive: true });
+    fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifestCache));
+    return manifestCache;
+  } catch (e) {
+    const cached = readJsonSync(MANIFEST_FILE, null);
+    if (!cached) throw e;
+    return cached; // nicht im Speicher halten, damit online wieder aktualisiert wird
+  }
 }
 async function listVersions() {
   const m = await getManifest();
@@ -164,7 +214,13 @@ async function ensureJava(major, onStatus) {
 }
 
 // ---------- fabric ----------
-async function ensureFabric(mcVersion) {
+async function ensureFabric(inst) {
+  const mcVersion = inst.version;
+  const cachedFile = inst.fabricProfile && path.join(META, 'versions', inst.fabricProfile, `${inst.fabricProfile}.json`);
+  if (isOffline()) {
+    if (cachedFile && fs.existsSync(cachedFile)) return inst.fabricProfile;
+    throw new Error('Diese Instanz muss einmal mit Internetverbindung gestartet werden, bevor sie offline läuft.');
+  }
   let loaders;
   try {
     loaders = await getJson(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(mcVersion)}`);
@@ -182,6 +238,7 @@ async function ensureFabric(mcVersion) {
     await fsp.mkdir(path.dirname(file), { recursive: true });
     await fsp.writeFile(file, JSON.stringify(profile));
   }
+  inst.fabricProfile = name;
   return name;
 }
 
@@ -229,13 +286,22 @@ async function launch(id) {
   send('state', { id, running: true });
   try {
     status('Anmeldung wird geprüft', 0, 0);
-    const authorization = await getLaunchAuth();
-    const info = await versionInfo(inst.version);
+    const { auth: authorization, offline } = await getLaunchAuth();
+    let info;
+    try {
+      info = await versionInfo(inst.version);
+      inst.versionInfo = info;
+    } catch (e) {
+      if (!inst.versionInfo) {
+        throw new Error(offline ? 'Diese Instanz muss einmal mit Internetverbindung gestartet werden, bevor sie offline läuft.' : errMsg(e));
+      }
+      info = inst.versionInfo;
+    }
     const javaPath = await ensureJava(info.javaMajor, status);
     const version = { number: inst.version, type: info.type };
     if (inst.loader === 'fabric') {
       status('Fabric wird vorbereitet', 0, 0);
-      version.custom = await ensureFabric(inst.version);
+      version.custom = await ensureFabric(inst);
     }
     const cfg = getConfig();
     const client = new Client();
@@ -357,7 +423,7 @@ function handle(channel, fn) {
 handle('account:get', () => publicAccount());
 handle('account:login', () => login());
 handle('account:logout', () => fsp.rm(ACCOUNT_FILE, { force: true }));
-handle('config:get', () => getConfig());
+handle('config:get', () => ({ ...getConfig(), online: net.isOnline() }));
 handle('config:set', (patch) => setConfig(patch));
 handle('versions:list', () => listVersions());
 handle('instances:list', () => listInstances());

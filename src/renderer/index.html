@@ -14,6 +14,7 @@
       <button class="nav" data-view="settings">Einstellungen</button>
       <button class="nav" data-view="console">Protokoll</button>
     </nav>
+    <div class="badge hidden" id="offline-badge">Offline-Modus</div>
     <div class="account" id="account"></div>
   </aside>
 
@@ -63,6 +64,10 @@
       <div class="card">
         <label for="memory">Arbeitsspeicher für Minecraft: <b id="memory-value"></b></label>
         <input type="range" id="memory" min="2" max="16" step="1">
+      </div>
+      <div class="card">
+        <label class="check"><input type="checkbox" id="offline"> <b>Offline-Modus</b></label>
+        <p class="muted">Startet Minecraft ohne Anmeldeserver und ohne Internetzugriff des Launchers. Einzelspieler und LAN funktionieren, Online-Server und die Modrinth-Suche nicht. Voraussetzung: einmal mit Microsoft angemeldet und die Instanz einmal online gestartet. Ohne Internetverbindung schaltet der Launcher beim Start automatisch auf offline.</p>
       </div>
       <div class="card">
         <p class="muted">Spieldaten liegen unter <code>%APPDATA%\NovaLauncher</code>. Java wird bei Bedarf automatisch heruntergeladen (Eclipse Temurin).</p>
