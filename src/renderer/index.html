@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self'">
+  <title>Nova Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="logo"></span>Nova</div>
+    <nav>
+      <button class="nav active" data-view="library">Bibliothek</button>
+      <button class="nav" data-view="settings">Einstellungen</button>
+      <button class="nav" data-view="console">Protokoll</button>
+    </nav>
+    <div class="account" id="account"></div>
+  </aside>
+
+  <main>
+    <section id="view-library" class="view">
+      <header class="head">
+        <h1>Bibliothek</h1>
+        <button class="btn primary" id="new-instance">+ Neue Instanz</button>
+      </header>
+      <div class="grid" id="instances"></div>
+    </section>
+
+    <section id="view-instance" class="view hidden">
+      <header class="head">
+        <div>
+          <button class="link" id="back">← Bibliothek</button>
+          <h1 id="inst-name"></h1>
+          <p class="muted" id="inst-meta"></p>
+        </div>
+        <div class="row">
+          <button class="btn" id="inst-folder">Ordner öffnen</button>
+          <button class="btn danger" id="inst-delete">Löschen</button>
+          <button class="btn primary big" id="inst-play">Spielen</button>
+        </div>
+      </header>
+      <div class="tabs" id="content-tabs">
+        <button class="tab active" data-type="mod">Mods</button>
+        <button class="tab" data-type="resourcepack">Resource Packs</button>
+        <button class="tab" data-type="shader">Shader</button>
+      </div>
+      <div class="split">
+        <div class="pane">
+          <h2>Installiert</h2>
+          <ul class="files" id="installed"></ul>
+        </div>
+        <div class="pane grow">
+          <h2>Auf Modrinth suchen</h2>
+          <input type="search" id="search" placeholder="Suchen ...">
+          <p class="muted" id="search-hint"></p>
+          <ul class="results" id="results"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view hidden">
+      <header class="head"><h1>Einstellungen</h1></header>
+      <div class="card">
+        <label for="memory">Arbeitsspeicher für Minecraft: <b id="memory-value"></b></label>
+        <input type="range" id="memory" min="2" max="16" step="1">
+      </div>
+      <div class="card">
+        <p class="muted">Spieldaten liegen unter <code>%APPDATA%\NovaLauncher</code>. Java wird bei Bedarf automatisch heruntergeladen (Eclipse Temurin).</p>
+      </div>
+    </section>
+
+    <section id="view-console" class="view hidden">
+      <header class="head"><h1>Protokoll</h1></header>
+      <pre id="log"></pre>
+    </section>
+
+    <footer id="status" class="hidden">
+      <span id="status-text"></span>
+      <div class="bar"><div id="status-bar"></div></div>
+    </footer>
+  </main>
+
+  <div class="overlay hidden" id="modal">
+    <form class="modal" id="create-form">
+      <h2>Neue Instanz</h2>
+      <label>Name<input id="f-name" maxlength="40" required placeholder="Meine Welt"></label>
+      <label>Minecraft-Version<select id="f-version"></select></label>
+      <label class="check"><input type="checkbox" id="f-snapshots"> Snapshots anzeigen</label>
+      <label>Mod-Loader
+        <select id="f-loader">
+          <option value="fabric">Fabric</option>
+          <option value="vanilla">Vanilla</option>
+        </select>
+      </label>
+      <div class="row end">
+        <button type="button" class="btn" id="f-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary">Erstellen</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

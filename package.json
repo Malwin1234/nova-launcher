@@ -1,0 +1,53 @@
+{
+  "name": "nova-launcher",
+  "version": "1.0.0",
+  "description": "Nova Launcher - ein eigener Minecraft Launcher mit Instanzen, Fabric und Modrinth-Browser",
+  "main": "src/main.js",
+  "author": "Nova Launcher",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "icon": "node scripts/make-icon.js",
+    "dist": "node scripts/make-icon.js && electron-builder --win --x64 --publish never"
+  },
+  "build": {
+    "appId": "com.novalauncher.app",
+    "productName": "Nova Launcher",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nova Launcher",
+      "artifactName": "NovaLauncher-Setup-${version}.exe"
+    }
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "^26.18.0"
+  }
+}
