@@ -11,6 +11,7 @@
     <div class="brand"><span class="logo"></span>Nova</div>
     <nav>
       <button class="nav active" data-view="library">Bibliothek</button>
+      <button class="nav" data-view="skin">Skin-Editor</button>
       <button class="nav" data-view="settings">Einstellungen</button>
       <button class="nav" data-view="console">Protokoll</button>
     </nav>
@@ -55,6 +56,51 @@
           <input type="search" id="search" placeholder="Suchen ...">
           <p class="muted" id="search-hint"></p>
           <ul class="results" id="results"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-skin" class="view hidden">
+      <header class="head">
+        <h1>Skin-Editor</h1>
+        <div class="row">
+          <button class="btn" id="skin-random">Zufällig</button>
+          <button class="btn" id="skin-save">Als PNG speichern</button>
+          <button class="btn primary" id="skin-upload">Als Minecraft-Skin setzen</button>
+        </div>
+      </header>
+      <div class="skin-layout">
+        <div class="pane sk-left">
+          <h2>Presets</h2>
+          <div id="skin-presets"></div>
+        </div>
+        <div class="pane grow sk-mid">
+          <h2>Selber pixeln</h2>
+          <div class="row wrap">
+            <select id="skin-part"></select>
+            <div class="seg" id="skin-layer">
+              <button class="active" data-layer="base">Innen</button>
+              <button data-layer="over">Außen</button>
+            </div>
+            <div class="seg" id="skin-tools">
+              <button class="active" data-tool="pencil">Stift</button>
+              <button data-tool="eraser">Radierer</button>
+              <button data-tool="fill">Füllen</button>
+              <button data-tool="picker">Pipette</button>
+            </div>
+            <input type="color" id="skin-color" title="Farbe">
+            <button class="btn small" id="skin-undo" title="Strg+Z">Rückgängig</button>
+            <button class="btn small danger" id="skin-clear">Gemaltes löschen</button>
+          </div>
+          <div id="skin-palette" class="sk-swatches"></div>
+          <div class="sk-canvas-wrap"><canvas id="skin-canvas"></canvas></div>
+          <p class="muted">Oben: Oberseite, Unterseite · Unten: rechte Seite, vorne, linke Seite, hinten. <b id="skin-hover"></b></p>
+          <p class="muted">Gemalte Pixel liegen über den Presets. Der Radierer entfernt nur Gemaltes. „Außen“ ist die zweite Schicht (Hut, Jacke).</p>
+        </div>
+        <div class="pane sk-right">
+          <h2>Vorschau</h2>
+          <div id="skin-stage"><div id="skin-model"></div></div>
+          <p class="muted">Ziehen zum Drehen</p>
         </div>
       </div>
     </section>
@@ -106,5 +152,6 @@
 
   <div id="toast" class="hidden"></div>
   <script src="app.js"></script>
+  <script src="skin.js"></script>
 </body>
 </html>

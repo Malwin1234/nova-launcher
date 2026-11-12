@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, safeStorage, Menu, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, safeStorage, Menu, net, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -409,6 +409,46 @@ async function removeContent(id, type, file) {
   await fsp.rm(path.join(instDir(id), CONTENT_DIRS[checkType(type)], path.basename(String(file))), { force: true });
 }
 
+// ---------- skin ----------
+function decodeSkin(dataUrl) {
+  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl));
+  const buf = m && Buffer.from(m[1], 'base64');
+  const valid = buf && buf.length > 24 && buf.length < 200000 && buf.readUInt32BE(0) === 0x89504e47 &&
+    buf.readUInt32BE(16) === 64 && buf.readUInt32BE(20) === 64;
+  if (!valid) throw new Error('Ungültige Skin-Datei');
+  return buf;
+}
+async function saveSkin(dataUrl) {
+  const png = decodeSkin(dataUrl);
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Skin speichern',
+    defaultPath: path.join(app.getPath('pictures'), 'nova-skin.png'),
+    filters: [{ name: 'PNG-Bild', extensions: ['png'] }],
+  });
+  if (res.canceled || !res.filePath) return null;
+  await fsp.writeFile(res.filePath, png);
+  return res.filePath;
+}
+async function uploadSkin(dataUrl) {
+  const png = decodeSkin(dataUrl);
+  const { auth, offline } = await getLaunchAuth();
+  if (offline) throw new Error('Zum Hochladen wird eine Internetverbindung benötigt (Offline-Modus ausschalten).');
+  const form = new FormData();
+  form.append('variant', 'classic');
+  form.append('file', new Blob([png], { type: 'image/png' }), 'skin.png');
+  let res;
+  try {
+    res = await fetch('https://api.minecraftservices.com/minecraft/profile/skins', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.access_token}`, 'User-Agent': UA },
+      body: form,
+    });
+  } catch {
+    throw new Error(NO_NET);
+  }
+  if (!res.ok) throw new Error(`Skin-Upload fehlgeschlagen (Status ${res.status})`);
+}
+
 // ---------- ipc ----------
 function handle(channel, fn) {
   ipcMain.handle(channel, async (_e, ...args) => {
@@ -420,6 +460,8 @@ function handle(channel, fn) {
     }
   });
 }
+handle('skin:save', (dataUrl) => saveSkin(dataUrl));
+handle('skin:upload', (dataUrl) => uploadSkin(dataUrl));
 handle('account:get', () => publicAccount());
 handle('account:login', () => login());
 handle('account:logout', () => fsp.rm(ACCOUNT_FILE, { force: true }));
@@ -444,8 +486,8 @@ handle('content:remove', ({ id, type, file }) => removeContent(id, type, file));
 // ---------- window ----------
 function createWindow() {
   win = new BrowserWindow({
-    width: 1180,
-    height: 760,
+    width: 1280,
+    height: 800,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0f1117',

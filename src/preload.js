@@ -6,6 +6,7 @@ const CHANNELS = [
   'versions:list',
   'instances:list', 'instances:create', 'instances:delete', 'instances:openFolder',
   'game:launch', 'game:stop',
+  'skin:save', 'skin:upload',
   'content:search', 'content:install', 'content:list', 'content:remove',
 ];
 const EVENTS = ['log', 'progress', 'state'];
