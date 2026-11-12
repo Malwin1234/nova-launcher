@@ -9,7 +9,9 @@ const { Auth } = require('msmc');
 const AdmZip = require('adm-zip');
 
 const UA = `NovaLauncher/${app.getVersion()}`;
-const DATA = path.join(app.getPath('appData'), 'NovaLauncher');
+// Nur in der Entwicklung (nicht im installierten Launcher): eigener Datenordner und Testanmeldung für automatische Starttests.
+const DEV_TEST = !app.isPackaged && process.env.NOVA_TEST === '1';
+const DATA = (DEV_TEST && process.env.NOVA_DATA_DIR) || path.join(app.getPath('appData'), 'NovaLauncher');
 const META = path.join(DATA, 'meta');
 const INSTANCES = path.join(DATA, 'instances');
 const JAVA = path.join(DATA, 'java');
@@ -126,6 +128,7 @@ function offlineAuth(acc) {
   return { access_token: '0', client_token: '0', uuid: acc.uuid, name: acc.name, user_properties: '{}', meta: { type: 'mojang' } };
 }
 async function getLaunchAuth() {
+  if (DEV_TEST) return { auth: offlineAuth({ uuid: '00000000000000000000000000000000', name: 'Tester' }), offline: true };
   const acc = loadAccount();
   if (!acc) throw new Error('Bitte einmal mit einem Microsoft-Konto anmelden. Danach kannst du auch offline spielen.');
   if (isOffline()) {
@@ -178,7 +181,48 @@ async function versionInfo(id) {
   const v = m.versions.find((x) => x.id === id);
   if (!v) throw new Error(`Unbekannte Minecraft-Version: ${id}`);
   const json = await getJson(v.url);
-  return { type: v.type, javaMajor: (json.javaVersion && json.javaVersion.majorVersion) || 8 };
+  return {
+    type: v.type,
+    javaMajor: (json.javaVersion && json.javaVersion.majorVersion) || 8,
+    jvmArgs: versionJvmArgs(json),
+  };
+}
+
+// Die Versionsdatei von Mojang schreibt Java-Startparameter vor (z. B. -XX:StackShadowPages=32 ab 26.x).
+// Die Start-Bibliothek übernimmt sie nicht, ohne sie stürzt Java beim Laden des Spiels ab.
+function ruleAllows(rules) {
+  if (!rules) return true;
+  let allowed = false;
+  for (const r of rules) {
+    if (r.features) continue;
+    const os = r.os || {};
+    const arch = process.arch === 'ia32' ? 'x86' : process.arch;
+    let versionOk = true;
+    if (os.version) {
+      try { versionOk = new RegExp(os.version).test(require('os').release()); } catch { versionOk = false; }
+    }
+    const match = (!os.name || os.name === 'windows') && (!os.arch || os.arch === arch) && versionOk;
+    if (match) allowed = r.action === 'allow';
+  }
+  return allowed;
+}
+function versionJvmArgs(json) {
+  const raw = (json.arguments && json.arguments.jvm) || [];
+  const flat = [];
+  for (const a of raw) {
+    if (typeof a === 'string') flat.push(a);
+    else if (ruleAllows(a.rules)) flat.push(...[].concat(a.value));
+  }
+  // Was die Start-Bibliothek selbst setzt, wird ausgelassen.
+  const skip = (a) => a === '-cp' || a === '${classpath}' || a.startsWith('-Djava.library.path') || a.startsWith('-XX:HeapDumpPath');
+  return flat.filter((a) => !skip(a));
+}
+function resolveJvmArgs(args, versionId) {
+  const natives = path.join(META, 'natives', versionId);
+  const vars = { natives_directory: natives, launcher_name: 'NovaLauncher', launcher_version: app.getVersion() };
+  return (args || [])
+    .map((a) => a.replace(/\$\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)))
+    .filter((a) => !a.includes('${'));
 }
 
 // ---------- java runtime (Eclipse Temurin) ----------
@@ -305,12 +349,18 @@ async function launch(id) {
     }
     const cfg = getConfig();
     const client = new Client();
-    client.on('debug', (l) => log(l));
-    client.on('data', (l) => log(l));
+    // Launcher-Protokoll zusätzlich in die Instanz schreiben, damit Startprobleme nachvollziehbar bleiben.
+    const logDir = path.join(instDir(id), 'logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    const fileLog = fs.createWriteStream(path.join(logDir, 'launcher.log'));
+    const both = (l) => { log(l); fileLog.write(String(l).trimEnd() + '\n'); };
+    client.on('debug', both);
+    client.on('data', both);
     client.on('progress', (p) => status(`Lade ${p.type}`, p.task, p.total));
     client.on('close', (code) => {
       running.delete(id);
-      log(`Minecraft beendet (Code ${code})`);
+      both(`Minecraft beendet (Code ${code})`);
+      fileLog.end();
       send('state', { id, running: false });
     });
     status('Spieldateien werden geprüft', 0, 0);
@@ -320,7 +370,8 @@ async function launch(id) {
       version,
       javaPath,
       memory: { max: `${cfg.memoryMax}G`, min: '1G' },
-      overrides: { gameDirectory: instDir(id), detached: false },
+      customArgs: resolveJvmArgs(info.jvmArgs, inst.version),
+      overrides: { gameDirectory: instDir(id), cwd: instDir(id), detached: false },
     });
     if (!child) throw new Error('Minecraft konnte nicht gestartet werden (siehe Protokoll).');
     running.set(id, child);
@@ -506,7 +557,7 @@ function createWindow() {
   win.webContents.on('will-navigate', (e) => e.preventDefault());
 }
 
-if (!app.requestSingleInstanceLock()) {
+if (!DEV_TEST && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {

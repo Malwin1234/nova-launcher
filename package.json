@@ -1,6 +1,6 @@
 {
   "name": "nova-launcher",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Nova Launcher - ein eigener Minecraft Launcher mit Instanzen, Fabric und Modrinth-Browser",
   "main": "src/main.js",
   "author": "Nova Launcher",
