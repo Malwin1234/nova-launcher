@@ -1,15 +1,48 @@
-// Bibliothek: Instanz-Raster, "Weiterspielen", Spielen/Stoppen und der Dialog "Neue Instanz".
+// Bibliothek: Instanz-Raster mit Schnellaktionen, "Weiterspielen", Spielen/Stoppen und der Dialog "Neue Instanz".
 function hue(str) {
   let h = 0;
   for (const c of str) h = (h * 31 + c.charCodeAt(0)) % 360;
   return h;
 }
-const loaderName = (l) => (l === 'fabric' ? 'Fabric' : 'Vanilla');
+
+// ---------- mod loaders ----------
+// Die Liste kommt aus dem Hauptprozess (loaders:list); solange es den Kanal nicht gibt oder er fehlschlägt, gelten Vanilla und Fabric.
+const FALLBACK_LOADERS = [{ id: 'vanilla', label: 'Vanilla' }, { id: 'fabric', label: 'Fabric' }];
+const LOADER_LABELS = { vanilla: 'Vanilla', fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge', neoforge: 'NeoForge' };
+state.loaders = null; // erst nach erfolgreicher Abfrage gesetzt
+state.copying = new Set(); // Instanzen, die gerade dupliziert werden
+async function getLoaders() {
+  if (state.loaders) return state.loaders;
+  try {
+    const list = await api.call('loaders:list');
+    const ok = Array.isArray(list) ? list.filter((l) => l && typeof l.id === 'string' && l.id) : [];
+    if (ok.length) {
+      state.loaders = ok.map((l) => ({ id: l.id, label: typeof l.label === 'string' && l.label ? l.label : l.id }));
+      return state.loaders;
+    }
+  } catch { /* Kanal fehlt noch oder Fehler: Ersatzliste */ }
+  // Die Loader-Module werden nur beim Start geladen: die Ersatzliste gilt für die ganze Sitzung (keine wiederholten Fehlversuche).
+  state.loaders = FALLBACK_LOADERS;
+  return FALLBACK_LOADERS;
+}
+function loaderName(l) {
+  const known = (state.loaders || []).find((x) => x.id === l);
+  return known ? known.label : LOADER_LABELS[l] || String(l || 'Vanilla');
+}
+function fillLoaders(sel, loaders, selected) {
+  sel.replaceChildren(...loaders.map((l) => el('option', { value: l.id, textContent: l.label })));
+  if (loaders.some((l) => l.id === selected)) sel.value = selected;
+}
+const isCopying = (inst) => !!inst.busy || state.copying.has(inst.id);
 
 function playButton(inst, extra = '') {
   const btn = el('button', { className: `btn primary ${extra}` });
   const busy = state.busy.has(inst.id);
-  if (inst.running && !busy) {
+  if (isCopying(inst) && !inst.running && !busy) {
+    btn.textContent = 'Wird kopiert ...';
+    btn.disabled = true;
+    btn.onclick = (e) => e.stopPropagation();
+  } else if (inst.running && !busy) {
     btn.textContent = 'Stoppen';
     btn.classList.add('stop');
     btn.onclick = (e) => { e.stopPropagation(); run(() => api.call('game:stop', inst.id)); };
@@ -43,6 +76,10 @@ function ago(time) {
   const days = Math.round(min / 1440);
   return days === 1 ? 'gestern' : `vor ${days} Tagen`;
 }
+function lastPlayedText(inst) {
+  if (inst.running) return 'Läuft gerade';
+  return inst.lastPlayed ? `Zuletzt gespielt: ${ago(inst.lastPlayed)}` : 'Noch nie gespielt';
+}
 function renderRecent() {
   const box = $('#recent');
   box.replaceChildren();
@@ -54,7 +91,7 @@ function renderRecent() {
     const note = world && !r.direct ? ' · öffnet die Instanz' : '';
     box.append(el('button', {
       className: 'recent',
-      disabled: state.busy.has(r.instanceId) || !!(inst && inst.running),
+      disabled: state.busy.has(r.instanceId) || !!(inst && (inst.running || isCopying(inst))),
       title: world ? `Welt „${r.name}“ direkt starten` : `Mit ${r.address} verbinden`,
       onclick: () => play(r.instanceId, { type: r.kind, target: r.id }),
     },
@@ -76,14 +113,100 @@ function render() {
   for (const inst of state.instances) {
     const art = el('div', { className: 'art' });
     art.style.setProperty('--hue', hue(inst.id));
+    const more = el('button', {
+      className: 'inst-more',
+      textContent: '⋯',
+      title: 'Aktionen',
+      onclick: (e) => { e.stopPropagation(); openInstMenu(inst.id, more); },
+    });
+    more.setAttribute('aria-label', `Aktionen für ${inst.name}`);
     grid.append(el('div', { className: 'inst', onclick: () => openInstance(inst.id) },
       art,
-      el('div', { className: 'name', textContent: inst.name }),
+      el('div', { className: 'inst-title' }, el('div', { className: 'name', textContent: inst.name, title: inst.name }), more),
       el('div', { className: 'muted', textContent: `${loaderName(inst.loader)} ${inst.version}` }),
+      el('div', { className: 'muted inst-played', textContent: lastPlayedText(inst) }),
       playButton(inst)));
   }
   const cur = state.instances.find((i) => i.id === state.current);
-  if (cur) $('#inst-play').replaceWith(Object.assign(playButton(cur, 'big'), { id: 'inst-play' }));
+  if (cur) {
+    $('#inst-play').replaceWith(Object.assign(playButton(cur, 'big'), { id: 'inst-play' }));
+    if (typeof refreshInstanceHeader === 'function') refreshInstanceHeader(cur);
+  }
+}
+
+// ---------- quick actions ----------
+// Ein einziges schwebendes Menü für alle Karten; es hängt am <body>, damit es ein Neuzeichnen der Bibliothek übersteht.
+const instMenu = el('div', { className: 'inst-menu hidden' });
+instMenu.setAttribute('role', 'menu');
+document.body.append(instMenu);
+function closeInstMenu() {
+  instMenu.classList.add('hidden');
+}
+function openInstMenu(id, anchor) {
+  const inst = state.instances.find((i) => i.id === id);
+  if (!inst) return;
+  const locked = inst.running || isCopying(inst) || state.busy.has(id);
+  const item = (text, fn, opts = {}) => {
+    const b = el('button', {
+      className: `inst-menu-item${opts.danger ? ' danger' : ''}`,
+      textContent: text,
+      disabled: !!opts.disabled,
+      title: opts.disabled ? 'Nicht möglich, solange die Instanz läuft oder kopiert wird' : '',
+      onclick: () => { closeInstMenu(); fn(); },
+    });
+    b.setAttribute('role', 'menuitem');
+    return b;
+  };
+  instMenu.replaceChildren(
+    item('Einstellungen', () => openInstanceSettings(id)),
+    item('Duplizieren', () => instDuplicate(id), { disabled: locked }),
+    item('Ordner öffnen', () => run(() => api.call('instances:openFolder', id))),
+    item('Löschen', () => instDelete(id), { danger: true, disabled: locked }));
+  instMenu.classList.remove('hidden');
+  const r = anchor.getBoundingClientRect();
+  const w = instMenu.offsetWidth;
+  const h = instMenu.offsetHeight;
+  instMenu.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))}px`;
+  const top = r.bottom + h + 12 > window.innerHeight ? r.top - h - 4 : r.bottom + 4;
+  instMenu.style.top = `${Math.max(8, Math.min(window.innerHeight - h - 8, top))}px`;
+  const first = instMenu.querySelector('button:not(:disabled)');
+  if (first) first.focus({ preventScroll: true });
+}
+document.addEventListener('click', (e) => {
+  if (!instMenu.contains(e.target)) closeInstMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeInstMenu();
+});
+window.addEventListener('resize', closeInstMenu);
+document.addEventListener('scroll', closeInstMenu, true);
+
+// ---------- duplicate / delete (Bibliothek und Instanzansicht) ----------
+async function instDuplicate(id) {
+  const inst = state.instances.find((i) => i.id === id);
+  if (!inst || state.copying.has(id)) return;
+  if (inst.running || state.busy.has(id)) return toast('Die Instanz läuft gerade. Beende Minecraft zuerst.');
+  state.copying.add(id);
+  render();
+  const copy = await run(() => api.call('instances:duplicate', id));
+  state.copying.delete(id);
+  await refreshInstances();
+  if (copy) toast(`„${inst.name}“ wurde dupliziert als „${copy.name}“.`, true);
+}
+async function instDelete(id) {
+  const inst = state.instances.find((i) => i.id === id);
+  if (!inst) return;
+  if (inst.running || state.busy.has(id)) return toast('Die Instanz läuft gerade. Beende Minecraft zuerst.');
+  if (isCopying(inst)) return toast('Die Instanz wird gerade kopiert. Bitte warte, bis das fertig ist.');
+  if (!confirm(`Instanz „${inst.name}“ mit allen Welten und Mods wirklich löschen?`)) return;
+  await run(async () => {
+    await api.call('instances:delete', id);
+    if (state.current === id) {
+      state.current = null;
+      show('library');
+    }
+  });
+  refreshInstances();
 }
 
 // ---------- create instance ----------
@@ -99,6 +222,8 @@ $('#new-instance').onclick = async () => {
   if (!state.versions.length) state.versions = (await run(() => api.call('versions:list'))) || [];
   if (!state.versions.length) return;
   fillVersions();
+  const loaders = await getLoaders();
+  fillLoaders($('#f-loader'), loaders, loaders.some((l) => l.id === 'fabric') ? 'fabric' : loaders[0].id);
   $('#f-name').value = '';
   $('#modal').classList.remove('hidden');
   $('#f-name').focus();

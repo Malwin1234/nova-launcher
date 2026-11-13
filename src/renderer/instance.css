@@ -1,0 +1,41 @@
+/* ---------- Bibliothek: Instanzkarten ---------- */
+.inst-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.inst-title .name { flex: 1; min-width: 0; }
+.inst-more {
+  flex: none; width: 30px; height: 26px; padding: 0; border-radius: 7px; border: 1px solid transparent;
+  background: none; color: var(--muted); font: inherit; font-size: 18px; line-height: 1; cursor: pointer;
+}
+.inst-more:hover, .inst-more:focus-visible { background: var(--panel2); border-color: var(--line); color: var(--text); outline: none; }
+.inst .inst-played { font-size: 12.5px; margin-top: -8px; }
+
+/* ---------- Schnellaktionen-Menü ---------- */
+.inst-menu {
+  position: fixed; z-index: 20; min-width: 170px; padding: 5px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5); display: flex; flex-direction: column; gap: 2px;
+}
+.inst-menu-item {
+  text-align: left; background: none; border: 0; color: var(--text); font: inherit;
+  padding: 7px 10px; border-radius: 6px; cursor: pointer;
+}
+.inst-menu-item:hover:not(:disabled), .inst-menu-item:focus-visible { background: var(--panel); outline: none; }
+.inst-menu-item.danger { color: var(--danger); }
+.inst-menu-item:disabled { opacity: .45; cursor: default; }
+
+/* ---------- Instanz-Einstellungen ---------- */
+.modal.wide { width: 500px; max-height: calc(100vh - 40px); overflow: auto; }
+#is-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+#is-fields:disabled { opacity: .55; }
+.is-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.is-cols label { min-width: 0; }
+.modal input[type=number] {
+  width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font: inherit; outline: none;
+}
+.modal input[type=number]:focus { border-color: var(--accent); }
+.is-note {
+  margin: 0; padding: 9px 12px; border-radius: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 6px;
+  background: rgba(255, 184, 77, .12); color: #ffb84d; border: 1px solid rgba(255, 184, 77, .4);
+}
+.is-note.danger { background: rgba(255, 92, 122, .12); color: var(--danger); border-color: rgba(255, 92, 122, .5); }
+#is-memory-globalvalue { color: var(--muted); }

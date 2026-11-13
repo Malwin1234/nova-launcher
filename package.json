@@ -1,6 +1,6 @@
 {
   "name": "nova-launcher",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Nova Launcher - ein eigener Minecraft Launcher mit Instanzen, Fabric und Modrinth-Browser",
   "main": "src/main.js",
   "author": "Nova Launcher",
@@ -21,6 +21,14 @@
     "directories": {
       "output": "dist"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Malwin1234",
+        "repo": "nova-launcher",
+        "releaseType": "release"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -43,6 +51,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.6.1",
+    "electron-updater": "6.8.11",
     "minecraft-launcher-core": "^3.18.2",
     "msmc": "^5.0.5"
   },

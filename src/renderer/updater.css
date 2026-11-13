@@ -1,0 +1,18 @@
+/* ---------- Einstellungen: Karte "Über & Updates" ---------- */
+#view-settings .card { flex: none; width: 100%; max-width: 640px; }
+.upd-status { color: var(--muted); margin: 8px 0 0; }
+.upd-status.info { color: var(--accent2); }
+.upd-status.warn { color: #e6b450; }
+.upd-bar { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+#update-progress-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .15s; }
+.upd-notes {
+  margin-top: 10px; padding: 10px 12px; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--muted);
+}
+.upd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.upd-link { margin-left: auto; text-decoration: underline; text-underline-offset: 3px; }
+/* Hinweis in der Seitenleiste, wenn ein Update bereitsteht */
+.nav.has-update::after {
+  content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 8px; border-radius: 50%;
+  background: var(--accent2); vertical-align: middle;
+}

@@ -1,0 +1,45 @@
+/* ---------- Instanz: installierte Inhalte ---------- */
+#installed-pane { width: 360px; }
+.pane-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.pane-head h2 { margin: 0; }
+#installed-hint { font-size: 13px; margin: 0 0 6px; }
+.files li.cfile { justify-content: flex-start; gap: 10px; padding: 7px 0; }
+.files li.cfile img, .files li.cfile .noicon { width: 32px; height: 32px; border-radius: 6px; background: var(--panel2); flex: none; object-fit: cover; }
+.files li.cfile .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.files li.cfile .info div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files li.cfile .title { font-size: 13.5px; font-weight: 600; }
+.files li.cfile .sub { font-size: 12px; }
+.files li.cfile .upd { font-size: 12px; color: var(--accent2); }
+.files li.cfile .actions { display: flex; gap: 6px; align-items: center; flex: none; }
+.files li.cfile.off img, .files li.cfile.off .noicon, .files li.cfile.off .title { opacity: .45; }
+
+/* Schalter aktiv/deaktiviert */
+.switch {
+  position: relative; width: 34px; height: 18px; border-radius: 9px; border: 0; padding: 0; cursor: pointer; flex: none;
+  background: var(--line); transition: background .15s;
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text); transition: left .15s;
+}
+.switch.on { background: var(--accent); }
+.switch.on::after { left: 18px; }
+.switch:disabled { opacity: .5; cursor: default; }
+
+/* ---------- Modpacks ---------- */
+.mp-filters { display: flex; gap: 10px; margin-bottom: 12px; flex: none; }
+.mp-filters input { flex: 1; }
+.mp-filters select { width: 170px; flex: none; }
+.mp-progress {
+  display: flex; align-items: center; gap: 14px; flex: none; margin-bottom: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
+}
+#mp-progress-text { flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mp-progress-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .15s; }
+#mp-progress-bar.busy { opacity: .45; }
+#mp-hint { flex: none; margin-bottom: 4px; }
+#mp-results { flex: none; overflow: visible; }
+#mp-results img, #mp-results .noicon { width: 56px; height: 56px; }
+.mp-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+.mp-actions select { width: 210px; padding: 4px 8px; font-size: 13px; }
+#mp-more { align-self: center; margin-top: 12px; flex: none; }

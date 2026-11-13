@@ -3,14 +3,18 @@
 Ein eigener Minecraft-Launcher für Windows (Electron).
 
 ## Funktionen
-- Anmeldung mit Microsoft-Konto (Token wird verschlüsselt per Windows DPAPI gespeichert)
-- Instanzen mit getrennten Spielordnern (Vanilla oder Fabric, alle Releases und Snapshots)
-- Modrinth-Browser für Mods, Resource Packs und Shader inkl. Pflicht-Abhängigkeiten
-- Passende Java-Laufzeit (Eclipse Temurin) wird automatisch heruntergeladen
-- Offline-Modus: Start ohne Anmeldeserver (Einzelspieler/LAN), nach einmaliger Microsoft-Anmeldung
-- Skin-Editor: Presets kombinieren, selber pixeln, 3D-Vorschau, als PNG speichern oder aufs Konto hochladen
-- Weiterspielen: Schnellstart für die letzten 10 gespielten Welten und Server
-- Arbeitsspeicher einstellbar, Live-Protokoll des Spiels
+- **Konten:** mehrere Microsoft-Konten, Wechsel per Klick (Token verschlüsselt per Windows DPAPI)
+- **Instanzen:** getrennte Spielordner, Vanilla, Fabric, Quilt, Forge und NeoForge, alle Releases und Snapshots;
+  umbenennen, duplizieren, Version/Loader wechseln, eigener Arbeitsspeicher und JVM-Argumente
+- **Weiterspielen:** Schnellstart für die letzten 10 gespielten Welten und Server
+- **Modrinth:** Mods, Resource Packs und Shader suchen und installieren, Mods an/aus, Mod-Updates
+- **Modpacks:** Modrinth-Modpacks suchen und installieren, `.mrpack`-Import
+- **Skin-Editor:** Presets kombinieren, selber pixeln (auch direkt auf der 3D-Figur), Spiegeln, klassisch/schlank,
+  Import, als PNG speichern oder aufs Konto hochladen
+- **Start:** passende Java-Laufzeit (Eclipse Temurin, mit Prüfsumme) wird automatisch geladen; Fortschritt mit Phasen
+  und Dateizählern; verständliche Absturzmeldung mit Log-Ordner
+- **Offline-Modus:** Start ohne Anmeldeserver (Einzelspieler/LAN) nach einmaliger Microsoft-Anmeldung
+- **Auto-Updates** über GitHub-Releases (funktioniert nur, wenn das Repository öffentlich ist)
 
 ## Installation
 `NovaLauncher-Setup-<version>.exe` aus den Releases herunterladen und ausführen.
@@ -23,6 +27,15 @@ npm install
 npm start      # Launcher starten
 npm run dist   # Installer nach dist/ bauen
 ```
+Automatischer Starttest (ohne Microsoft-Login, eigener Datenordner):
+```
+NOVA_TEST=1 NOVA_DATA_DIR=<leerer Ordner> node_modules/electron/dist/electron.exe scripts/test-launch.js 26.3:fabric 1.21.1:neoforge
+```
+
+## Release
+Zu jedem GitHub-Release gehören drei Dateien aus `dist/`, alle aus demselben Build:
+`NovaLauncher-Setup-<version>.exe`, `NovaLauncher-Setup-<version>.exe.blockmap` und `latest.yml`.
+Tag `v<version>`, als normales Release (kein Entwurf, keine Vorabversion).
 
 Spieldaten liegen unter `%APPDATA%\NovaLauncher`.
 

@@ -127,6 +127,21 @@ footer { border-top: 1px solid var(--line); background: var(--panel); padding: 1
 #status-text { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar { flex: 1; height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; }
 #status-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .15s; }
+#status-step { flex: none; color: var(--muted); font-size: 13px; white-space: nowrap; }
+#status-step:empty, #status-pct:empty { display: none; }
+#status-pct { flex: none; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+#status-bar.indeterminate { width: 30%; transition: none; animation: status-slide 1.2s ease-in-out infinite; }
+@keyframes status-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { #status-bar.indeterminate { animation: none; width: 100%; opacity: .5; } }
+
+/* ---------- Absturzdialog ---------- */
+.modal.crash { width: min(640px, 92vw); max-height: 86vh; border-color: var(--danger); }
+.modal.crash h2 { color: var(--danger); margin: 0; }
+#crash-reason { user-select: text; }
+#crash-detail {
+  margin: 0; max-height: 280px; overflow: auto; background: #0a0c11; border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px; font: 12px/1.45 Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: text;
+}
 
 .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); display: grid; place-items: center; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; width: 380px; display: flex; flex-direction: column; gap: 12px; }

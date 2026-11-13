@@ -16,6 +16,7 @@
     <div class="brand"><span class="logo"></span>Nova</div>
     <nav>
       <button class="nav active" data-view="library">Bibliothek</button>
+      <button class="nav" data-view="modpacks">Modpacks</button>
       <button class="nav" data-view="skin">Skin-Editor</button>
       <button class="nav" data-view="settings">Einstellungen</button>
       <button class="nav" data-view="console">Protokoll</button>
@@ -45,6 +46,8 @@
           <p class="muted" id="inst-meta"></p>
         </div>
         <div class="row">
+          <button class="btn" id="inst-settings">Einstellungen</button>
+          <button class="btn" id="inst-duplicate">Duplizieren</button>
           <button class="btn" id="inst-folder">Ordner öffnen</button>
           <button class="btn danger" id="inst-delete">Löschen</button>
           <button class="btn primary big" id="inst-play">Spielen</button>
@@ -56,8 +59,15 @@
         <button class="tab" data-type="shader">Shader</button>
       </div>
       <div class="split">
-        <div class="pane">
-          <h2>Installiert</h2>
+        <div class="pane" id="installed-pane">
+          <div class="pane-head">
+            <h2>Installiert</h2>
+            <div class="row">
+              <button class="btn small" id="check-updates">Nach Updates suchen</button>
+              <button class="btn small primary hidden" id="update-all">Alle aktualisieren</button>
+            </div>
+          </div>
+          <p class="muted hidden" id="installed-hint"></p>
           <ul class="files" id="installed"></ul>
         </div>
         <div class="pane grow">
@@ -69,10 +79,36 @@
       </div>
     </section>
 
+    <section id="view-modpacks" class="view hidden">
+      <header class="head">
+        <div>
+          <h1>Modpacks</h1>
+          <p class="muted">Fertige Mod-Sammlungen von Modrinth. Jedes Modpack wird als eigene Instanz installiert.</p>
+        </div>
+        <button class="btn" id="mp-import">.mrpack-Datei importieren</button>
+      </header>
+      <div class="mp-filters">
+        <input type="search" id="mp-search" placeholder="Modpacks suchen ...">
+        <select id="mp-version" title="Minecraft-Version"><option value="">Alle Versionen</option></select>
+        <select id="mp-loader" title="Mod-Loader"><option value="">Alle Loader</option></select>
+      </div>
+      <div class="mp-progress hidden" id="mp-progress">
+        <span id="mp-progress-text"></span>
+        <div class="bar"><div id="mp-progress-bar"></div></div>
+        <button class="btn small" id="mp-cancel">Abbrechen</button>
+      </div>
+      <p class="muted" id="mp-hint"></p>
+      <ul class="results" id="mp-results"></ul>
+      <button class="btn hidden" id="mp-more">Mehr anzeigen</button>
+    </section>
+
     <section id="view-skin" class="view hidden">
       <header class="head">
         <h1>Skin-Editor</h1>
-        <div class="row">
+        <div class="row wrap end-wrap">
+          <button class="btn" id="skin-new" title="Alles auf den Anfang zurücksetzen">Neu</button>
+          <button class="btn" id="skin-import">Skin-Datei importieren</button>
+          <button class="btn" id="skin-fetch">Aktuellen Konto-Skin laden</button>
           <button class="btn" id="skin-random">Zufällig</button>
           <button class="btn" id="skin-save">Als PNG speichern</button>
           <button class="btn primary" id="skin-upload">Als Minecraft-Skin setzen</button>
@@ -81,35 +117,45 @@
       <div class="skin-layout">
         <div class="pane sk-left">
           <h2>Presets</h2>
+          <label class="check sk-check"><input type="checkbox" id="skin-use-presets"> Presets verwenden</label>
           <div id="skin-presets"></div>
         </div>
         <div class="pane grow sk-mid">
           <h2>Selber pixeln</h2>
           <div class="row wrap">
+            <div class="seg" id="skin-model-switch" title="Armbreite des Modells">
+              <button class="active" data-model="classic">Klassisch</button>
+              <button data-model="slim">Schlank</button>
+            </div>
             <select id="skin-part"></select>
             <div class="seg" id="skin-layer">
               <button class="active" data-layer="base">Innen</button>
               <button data-layer="over">Außen</button>
             </div>
+            <label class="check sk-check" title="Striche links/rechts spiegeln (Arme und Beine auf die andere Seite)"><input type="checkbox" id="skin-mirror"> Spiegeln</label>
+          </div>
+          <div class="row wrap">
             <div class="seg" id="skin-tools">
-              <button class="active" data-tool="pencil">Stift</button>
-              <button data-tool="eraser">Radierer</button>
-              <button data-tool="fill">Füllen</button>
-              <button data-tool="picker">Pipette</button>
+              <button class="active" data-tool="pencil" title="Stift (B)">Stift</button>
+              <button data-tool="eraser" title="Radierer (E)">Radierer</button>
+              <button data-tool="fill" title="Füllen (G)">Füllen</button>
+              <button data-tool="picker" title="Pipette (I)">Pipette</button>
             </div>
-            <input type="color" id="skin-color" title="Farbe">
+            <label class="sk-colorbox" title="Aktive Farbe ändern"><span id="skin-color-chip"></span><b id="skin-color-hex"></b><input type="color" id="skin-color"></label>
             <button class="btn small" id="skin-undo" title="Strg+Z">Rückgängig</button>
+            <button class="btn small" id="skin-redo" title="Strg+Y">Wiederholen</button>
             <button class="btn small danger" id="skin-clear">Gemaltes löschen</button>
           </div>
-          <div id="skin-palette" class="sk-swatches"></div>
+          <div class="sk-colors"><div id="skin-palette" class="sk-swatches"></div><div id="skin-recent" class="sk-swatches"></div></div>
           <div class="sk-canvas-wrap"><canvas id="skin-canvas"></canvas></div>
-          <p class="muted">Oben: Oberseite, Unterseite · Unten: rechte Seite, vorne, linke Seite, hinten. <b id="skin-hover"></b></p>
-          <p class="muted">Gemalte Pixel liegen über den Presets. Der Radierer entfernt nur Gemaltes. „Außen“ ist die zweite Schicht (Hut, Jacke).</p>
+          <p class="muted sk-hint">Oben: Ober-, Unterseite · unten: rechts, vorne, links, hinten. <b id="skin-hover"></b></p>
+          <p class="muted sk-hint">Gemaltes liegt über den Presets; der Radierer entfernt nur Gemaltes. „Außen“ = zweite Schicht (Hut, Jacke). Tasten: B, E, G, I, Strg+Z, Strg+Y.</p>
         </div>
         <div class="pane sk-right">
           <h2>Vorschau</h2>
           <div id="skin-stage"><div id="skin-model"></div></div>
-          <p class="muted">Ziehen zum Drehen</p>
+          <label class="check sk-check"><input type="checkbox" id="skin-show-over"> Außenschicht anzeigen</label>
+          <p class="muted">Auf die Figur klicken malt auf die Schicht <b id="skin-paint-layer"></b>. Daneben ziehen oder rechte Maustaste dreht. <b id="skin-hover3d"></b></p>
         </div>
       </div>
     </section>
@@ -127,6 +173,19 @@
       <div class="card">
         <p class="muted">Spieldaten liegen unter <code>%APPDATA%\NovaLauncher</code>. Java wird bei Bedarf automatisch heruntergeladen (Eclipse Temurin).</p>
       </div>
+      <div class="card" id="about-card">
+        <h2>Über &amp; Updates</h2>
+        <p>Nova Launcher <b id="app-version"></b></p>
+        <p class="upd-status" id="update-status" role="status"></p>
+        <div class="upd-bar hidden" id="update-progress"><div id="update-progress-bar"></div></div>
+        <div class="upd-notes hidden" id="update-notes"></div>
+        <div class="upd-actions">
+          <button class="btn" id="update-check">Nach Updates suchen</button>
+          <button class="btn primary hidden" id="update-download">Herunterladen</button>
+          <button class="btn primary hidden" id="update-install">Jetzt neu starten und installieren</button>
+          <button class="link upd-link" id="update-releases">Alle Versionen auf GitHub ansehen ↗</button>
+        </div>
+      </div>
     </section>
 
     <section id="view-console" class="view hidden">
@@ -134,10 +193,24 @@
       <pre id="log"></pre>
     </section>
 
-    <footer id="status" class="hidden">
+    <footer id="status" class="hidden" role="status">
+      <span id="status-step"></span>
       <span id="status-text"></span>
       <div class="bar"><div id="status-bar"></div></div>
+      <span id="status-pct"></span>
     </footer>
+    <div class="overlay hidden" id="crash">
+      <div class="modal crash" role="alertdialog" aria-labelledby="crash-title" aria-describedby="crash-reason">
+        <h2 id="crash-title">Minecraft ist abgestürzt</h2>
+        <p id="crash-reason"></p>
+        <p class="muted" id="crash-hint">Letzte relevante Zeilen aus dem Protokoll:</p>
+        <pre id="crash-detail"></pre>
+        <div class="row end">
+          <button type="button" class="btn" id="crash-logs">Log-Ordner öffnen</button>
+          <button type="button" class="btn primary" id="crash-close">Schließen</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <div class="overlay hidden" id="modal">
@@ -155,6 +228,30 @@
       <div class="row end">
         <button type="button" class="btn" id="f-cancel">Abbrechen</button>
         <button type="submit" class="btn primary">Erstellen</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="overlay hidden" id="is-modal">
+    <form class="modal wide" id="is-form">
+      <h2>Instanz-Einstellungen</h2>
+      <p class="is-note hidden" id="is-running">Die Instanz läuft gerade. Beende Minecraft, um die Einstellungen zu ändern.</p>
+      <fieldset id="is-fields">
+        <label>Name<input id="is-name" maxlength="40" required></label>
+        <div class="is-cols">
+          <label>Minecraft-Version<select id="is-version"></select></label>
+          <label>Mod-Loader<select id="is-loader"></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="is-snapshots"> Snapshots anzeigen</label>
+        <label id="is-loaderversion-row">Loader-Version (leer = immer die neueste)<input id="is-loaderversion" maxlength="64" placeholder="neueste" spellcheck="false"></label>
+        <p class="is-note hidden" id="is-warning"></p>
+        <label class="check"><input type="checkbox" id="is-memory-global"> Arbeitsspeicher: globale Einstellung verwenden <span id="is-memory-globalvalue"></span></label>
+        <label id="is-memory-row">Eigener Arbeitsspeicher in GB (1–32)<input type="number" id="is-memory" min="1" max="32" step="1"></label>
+        <label>Zusätzliche JVM-Argumente<input id="is-jvmargs" maxlength="500" placeholder="z. B. -XX:+UseZGC" spellcheck="false"></label>
+      </fieldset>
+      <div class="row end">
+        <button type="button" class="btn" id="is-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary" id="is-save">Speichern</button>
       </div>
     </form>
   </div>
