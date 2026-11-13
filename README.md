@@ -40,3 +40,7 @@ Tag `v<version>`, als normales Release (kein Entwurf, keine Vorabversion).
 Spieldaten liegen unter `%APPDATA%\NovaLauncher`.
 
 Kein offizielles Minecraft-Produkt. Nicht von Mojang oder Microsoft genehmigt oder mit ihnen verbunden.
+
+## Lizenz
+MIT, siehe [LICENSE](LICENSE). Minecraft selbst, die Spieldateien und Inhalte von Modrinth unterliegen ihren eigenen Lizenzen
+und sind nicht Teil dieses Repositorys.
