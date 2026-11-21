@@ -38,7 +38,15 @@
           ]
         }
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "signtoolOptions": {
+        "certificateSha1": "EEEDF77440364E67A04655F7172D96738B7E6A8E",
+        "signingHashAlgorithms": [
+          "sha256"
+        ],
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      },
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
